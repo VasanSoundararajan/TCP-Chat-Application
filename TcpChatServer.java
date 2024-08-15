@@ -1,15 +1,19 @@
 import java.io.*;
 import java.net.*;
+import java.util.ArrayList;
+import java.util.List;
+
 import javax.swing.*;
 
 public class TcpChatServer {
-    private static PrintWriter toClient;
-    private static BufferedReader fromClient;
-    private static JTextArea chatArea;
+    public static JTextArea chatArea;
     private static JTextField inputField;
+    private static String serverName;
 
+    @SuppressWarnings("resource")
     public static void main(String[] args) throws Exception {
-        JFrame frame = new JFrame("Server Chat");
+        serverName = getServerName();
+        JFrame frame = new JFrame("Server Chat - " + serverName);
         chatArea = new JTextArea();
         chatArea.setEditable(false);
         inputField = new JTextField();
@@ -20,40 +24,82 @@ public class TcpChatServer {
 
         inputField.addActionListener(e -> {
             String message = inputField.getText();
-            toClient.println(message);
-            chatArea.append("Server: " + message + "\n");
+            broadcastMessage("Server " + serverName + ": " + message);
+            chatArea.append(serverName + " : " + message + "\n");
             inputField.setText("");
+            if (message == null) {
+                System.exit(0);
+            }
         });
 
         frame.setSize(400, 400);
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         frame.setVisible(true);
 
-        try {
-            ServerSocket Srv = new ServerSocket(5555);
-            chatArea.append("Server started\n");
-            Socket Clt = Srv.accept();
+        ServerSocket serverSocket = new ServerSocket(5555);
+        chatArea.append("Server started. Waiting for clients...\n");
+
+        while (true) {
+            Socket clientSocket = serverSocket.accept();
             chatArea.append("Client connected\n");
+            ClientHandler clientHandler = new ClientHandler(clientSocket);
+            clientHandler.start();
+        }
+    }
 
-            toClient = new PrintWriter(new BufferedWriter(new OutputStreamWriter(Clt.getOutputStream())), true);
-            fromClient = new BufferedReader(new InputStreamReader(Clt.getInputStream()));
+    private static String getServerName() {
+        return JOptionPane.showInputDialog("Enter server name:");
+    }
 
-            String CltMsg;
+    static void broadcastMessage(String message) {
+        for (ClientHandler clientHandler : ClientHandler.getClientHandlers()) {
+            clientHandler.sendMessage(message);
+        }
+    }
+}
+
+class ClientHandler extends Thread {
+    private static List<ClientHandler> clientHandlers = new ArrayList<>();
+    private Socket clientSocket;
+    private PrintWriter toClient;
+    private BufferedReader fromClient;
+
+    public ClientHandler(Socket clientSocket) {
+        this.clientSocket = clientSocket;
+        clientHandlers.add(this);
+    }
+
+    public static List<ClientHandler> getClientHandlers() {
+        return clientHandlers;
+    }
+
+    @Override
+    public void run() {
+        try {
+            toClient = new PrintWriter(new BufferedWriter(new OutputStreamWriter(clientSocket.getOutputStream())),
+                    true);
+            fromClient = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
+
+            String clientMessage;
             while (true) {
-                CltMsg = fromClient.readLine();
-                if (CltMsg.equals("end")) {
+                clientMessage = fromClient.readLine();
+                if (clientMessage == ".") {
                     break;
-                } else {
-                    chatArea.append("Client: " + CltMsg + "\n");
                 }
+                TcpChatServer.chatArea.append("Client: " + clientMessage + "\n");
+                TcpChatServer.broadcastMessage(clientMessage);
             }
-            chatArea.append("Client Disconnected\n");
+            TcpChatServer.chatArea.append("Client Disconnected\n");
+            clientHandlers.remove(this);
             fromClient.close();
             toClient.close();
-            Clt.close();
-            Srv.close();
-        } catch (Exception E) {
-            chatArea.append("Error: " + E.getMessage() + "\n");
+            clientSocket.close();
+        } catch (IOException e) {
+            TcpChatServer.chatArea.append("Error: " + e.getMessage() + "\n");
         }
+    }
+
+    public void sendMessage(String message) {
+        toClient.println(message);
     }
 }

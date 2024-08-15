@@ -7,9 +7,12 @@ public class TcpChatClient {
     private static BufferedReader fromServer;
     private static JTextArea chatArea;
     private static JTextField inputField;
+    private static String clientName;
 
+    @SuppressWarnings("resource")
     public static void main(String[] args) throws Exception {
-        JFrame frame = new JFrame("Client Chat");
+        clientName = getClientName();
+        JFrame frame = new JFrame("Client Chat - " + clientName);
         chatArea = new JTextArea();
         chatArea.setEditable(false);
         inputField = new JTextField();
@@ -20,10 +23,10 @@ public class TcpChatClient {
 
         inputField.addActionListener(e -> {
             String message = inputField.getText();
-            toServer.println(message);
-            chatArea.append("Client: " + message + "\n");
+            toServer.println(clientName + ": " + message);
+            // chatArea.append(clientName + " : " + message + "\n");
             inputField.setText("");
-            if (message.equals("end")) {
+            if (message.equals(".")) {
                 try {
                     fromServer.close();
                     toServer.close();
@@ -52,13 +55,12 @@ public class TcpChatClient {
             fromServer = new BufferedReader(new InputStreamReader(Clt.getInputStream()));
 
             String SrvMsg;
-            chatArea.append("Type \"end\" to Quit\n");
             while (true) {
                 SrvMsg = fromServer.readLine();
-                if (SrvMsg == null || SrvMsg.equals("end")) {
+                if (SrvMsg == ".") {
                     break;
                 }
-                chatArea.append("Server: " + SrvMsg + "\n");
+                chatArea.append(SrvMsg + "\n");
             }
             chatArea.append("Server Disconnected\n");
             fromServer.close();
@@ -67,5 +69,9 @@ public class TcpChatClient {
         } catch (Exception E) {
             chatArea.append("Error: " + E.getMessage() + "\n");
         }
+    }
+
+    private static String getClientName() {
+        return JOptionPane.showInputDialog("Enter your name:");
     }
 }
