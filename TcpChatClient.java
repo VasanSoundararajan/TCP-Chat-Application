@@ -8,6 +8,8 @@ public class TcpChatClient {
     private static JTextArea chatArea;
     private static JTextField inputField;
     private static String clientName;
+    private static FileInputStream fis;
+    private static ObjectInputStream ois;
 
     @SuppressWarnings("resource")
     public static void main(String[] args) throws Exception {
@@ -24,7 +26,6 @@ public class TcpChatClient {
         inputField.addActionListener(e -> {
             String message = inputField.getText();
             toServer.println(clientName + ": " + message);
-            // chatArea.append(clientName + " : " + message + "\n");
             inputField.setText("");
             if (message.equals(".")) {
                 try {
@@ -53,6 +54,23 @@ public class TcpChatClient {
 
             toServer = new PrintWriter(new BufferedWriter(new OutputStreamWriter(Clt.getOutputStream())), true);
             fromServer = new BufferedReader(new InputStreamReader(Clt.getInputStream()));
+
+            File backupFile = new File("chat_backup.bin");
+            if (backupFile.exists()) {
+                fis = new FileInputStream(backupFile);
+                ois = new ObjectInputStream(fis);
+                try {
+                    while (true) {
+                        String message = (String) ois.readObject();
+                        chatArea.append(message + "\n");
+                    }
+                } catch (EOFException e) {
+                    // End of file reached
+                } finally {
+                    ois.close();
+                    fis.close();
+                }
+            }
 
             String SrvMsg;
             while (true) {

@@ -9,6 +9,8 @@ public class TcpChatServer {
     public static JTextArea chatArea;
     private static JTextField inputField;
     private static String serverName;
+    private static FileOutputStream fos;
+    private static ObjectOutputStream oos;
 
     @SuppressWarnings("resource")
     public static void main(String[] args) throws Exception {
@@ -24,9 +26,9 @@ public class TcpChatServer {
 
         inputField.addActionListener(e -> {
             String message = inputField.getText();
-            broadcastMessage("Server " + serverName + ": " + message);
+            broadcastMessage(serverName + " : " + message);
             chatArea.append(serverName + " : " + message + "\n");
-            inputField.setText("");
+            inputField.setText("");Tcp
             if (message == null) {
                 System.exit(0);
             }
@@ -35,6 +37,10 @@ public class TcpChatServer {
         frame.setSize(400, 400);
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         frame.setVisible(true);
+
+        File backupFile = new File("chat_backup.bin");
+        fos = new FileOutputStream(backupFile);
+        oos = new ObjectOutputStream(fos);
 
         ServerSocket serverSocket = new ServerSocket(5555);
         chatArea.append("Server started. Waiting for clients...\n");
@@ -54,6 +60,12 @@ public class TcpChatServer {
     static void broadcastMessage(String message) {
         for (ClientHandler clientHandler : ClientHandler.getClientHandlers()) {
             clientHandler.sendMessage(message);
+        }
+        try {
+            oos.writeObject(message);
+            oos.flush();
+        } catch (IOException e) {
+            chatArea.append("Error: " + e.getMessage() + "\n");
         }
     }
 }
@@ -86,7 +98,7 @@ class ClientHandler extends Thread {
                 if (clientMessage == ".") {
                     break;
                 }
-                TcpChatServer.chatArea.append("Client: " + clientMessage + "\n");
+                TcpChatServer.chatArea.append(clientMessage + "\n");
                 TcpChatServer.broadcastMessage(clientMessage);
             }
             TcpChatServer.chatArea.append("Client Disconnected\n");
